@@ -1,0 +1,143 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Contact {
+  id              String   @id @default(cuid())
+  whatsappJid     String   @unique @map("whatsapp_jid")
+  pushName        String?  @map("push_name")
+  phoneNumber     String?  @map("phone_number")
+  customName      String?  @map("custom_name")
+  notes           String?
+  relationship    String?
+  skipProbability Float    @default(0.0) @map("skip_probability")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  conversations      Conversation[]
+  messages            Message[]
+  googleCalendarAuths GoogleCalendarAuth[]
+  memory              ContactMemory?
+
+  @@map("contacts")
+}
+
+model Conversation {
+  id           String   @id @default(cuid())
+  contactId    String   @map("contact_id")
+  contact      Contact  @relation(fields: [contactId], references: [id])
+  isGroup      Boolean  @default(false) @map("is_group")
+  groupJid     String?  @map("group_jid")
+  summary      String?
+  lastActivity DateTime @default(now()) @map("last_activity")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  messages Message[]
+
+  @@map("conversations")
+}
+
+model Message {
+  id             String           @id @default(cuid())
+  conversationId String           @map("conversation_id")
+  conversation   Conversation     @relation(fields: [conversationId], references: [id])
+  contactId      String?          @map("contact_id")
+  contact        Contact?         @relation(fields: [contactId], references: [id])
+  direction      MessageDirection
+  content        String
+  messageType    MessageType      @default(TEXT) @map("message_type")
+  whatsappMsgId  String?          @unique @map("whatsapp_msg_id")
+  wasSkipped     Boolean          @default(false) @map("was_skipped")
+  delayMs        Int?             @map("delay_ms")
+  isProactive    Boolean          @default(false) @map("is_proactive")
+  metadata       Json?
+  createdAt      DateTime         @default(now()) @map("created_at")
+
+  @@index([conversationId, createdAt])
+  @@index([contactId, createdAt])
+  @@map("messages")
+}
+
+model BotState {
+  id                    String   @id @default("singleton")
+  isOnline              Boolean  @default(true) @map("is_online")
+  mood                  String   @default("neutra")
+  lastMoodChange        DateTime @default(now()) @map("last_mood_change")
+  sleepStart            String   @default("23:30") @map("sleep_start")
+  sleepEnd              String   @default("07:30") @map("sleep_end")
+  activeHoursMultiplier Float    @default(1.0) @map("active_hours_multiplier")
+  proactiveEnabled      Boolean  @default(true) @map("proactive_enabled")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@map("bot_state")
+}
+
+model ProactiveSchedule {
+  id          String          @id @default(cuid())
+  contactId   String          @map("contact_id")
+  scheduledAt DateTime        @map("scheduled_at")
+  sentAt      DateTime?       @map("sent_at")
+  content     String?
+  topic       String?
+  status      ProactiveStatus @default(PENDING)
+  createdAt   DateTime        @default(now()) @map("created_at")
+
+  @@index([status, scheduledAt])
+  @@map("proactive_schedules")
+}
+
+model GoogleCalendarAuth {
+  id             String   @id @default(cuid())
+  contactId      String   @map("contact_id")
+  contact        Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  accessToken    String   @map("access_token")
+  refreshToken   String   @map("refresh_token")
+  tokenExpiresAt DateTime @map("token_expires_at")
+  email          String?
+  label          String?
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  @@unique([contactId, email])
+  @@map("google_calendar_auth")
+}
+
+model ContactMemory {
+  id                     String   @id @default(cuid())
+  contactId              String   @unique @map("contact_id")
+  contact                Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  facts                  String   @default("")
+  lastProcessedMessageId String?  @map("last_processed_message_id")
+  messageCountSinceUpdate Int     @default(0) @map("message_count_since_update")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@map("contact_memories")
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  AUDIO
+  STICKER
+  REACTION
+  SYSTEM
+}
+
+enum ProactiveStatus {
+  PENDING
+  SENT
+  CANCELLED
+  FAILED
+}
