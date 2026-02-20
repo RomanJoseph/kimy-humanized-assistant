@@ -73,7 +73,7 @@ export class ResponseQueueProcessor extends WorkerHost {
       }
 
       // Split response into multiple WhatsApp-style messages
-      const parts = splitIntoMessages(responseText);
+      const parts = splitIntoMessages(responseText.replaceAll('[imagem gerada]', ''));
 
       if (parts.length > 1) {
         await this.whatsappMessage.sendMultipleTexts(jid, parts);
